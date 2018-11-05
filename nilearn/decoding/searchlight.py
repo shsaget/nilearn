@@ -323,15 +323,12 @@ class SearchLight(BaseEstimator):
       
     def compute_sphere(self, imgs):
         """Create the spheres of the searchlight
-
         Parameters
         ----------
         imgs : Niimg-like object
-            See http://nilearn.github.io/manipulating_images/input_output.html
-            4D image.
-            
+          See http://nilearn.github.io/manipulating_images/input_output.html
+          4D image.
         """
-        
         # check if image is 4D
         imgs = check_niimg_4d(imgs)
 
