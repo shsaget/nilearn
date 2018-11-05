@@ -319,3 +319,46 @@ class SearchLight(BaseEstimator):
         scores_3D[process_mask] = scores
         self.scores_ = scores_3D
         return self
+      
+        def compute_sphere(self, imgs):
+        """Create the spheres of the searchlight
+
+        Parameters
+        ----------
+        imgs : Niimg-like object
+            See http://nilearn.github.io/manipulating_images/input_output.html
+            4D image.
+        """
+
+        # check if image is 4D
+        imgs = check_niimg_4d(imgs)
+
+        # Get the seeds
+        process_mask_img = self.process_mask_img
+        if self.process_mask_img is None:
+            process_mask_img = self.mask_img
+
+        # Compute world coordinates of the seeds
+        process_mask, process_mask_affine = masking._load_mask_img(
+            process_mask_img)
+        process_mask_coords = np.where(process_mask != 0)
+        process_mask_coords = coord_transform(
+            process_mask_coords[0], process_mask_coords[1],
+            process_mask_coords[2], process_mask_affine)
+        process_mask_coords = np.asarray(process_mask_coords).T
+
+        X, A = _apply_mask_and_get_affinity(
+            process_mask_coords, imgs, self.radius, True,
+            mask_img=self.mask_img)
+
+        # estimator = self.estimator
+        # if isinstance(estimator, _basestring):
+        #    estimator = ESTIMATOR_CATALOG[estimator]()
+
+        # scores = search_light(X, y, estimator, A, groups,
+        #                      self.scoring, self.cv, self.n_jobs,
+        #                      self.verbose)
+        #scores_3D = np.zeros(process_mask.shape)
+        #scores_3D[process_mask] = scores
+        self.scores_ = scores_3D
+        return self, A
