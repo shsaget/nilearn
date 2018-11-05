@@ -266,6 +266,7 @@ class SearchLight(BaseEstimator):
         self.scoring = scoring
         self.cv = cv
         self.verbose = verbose
+        self.sphere_vect = []
 
     def fit(self, imgs, y, groups=None):
         """Fit the searchlight
@@ -360,5 +361,5 @@ class SearchLight(BaseEstimator):
         #                      self.verbose)
         #scores_3D = np.zeros(process_mask.shape)
         #scores_3D[process_mask] = scores
-        self.scores_ = scores_3D
-        return self, A
+        self.sphere_vect = A
+        return self
