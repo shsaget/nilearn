@@ -267,7 +267,7 @@ class SearchLight(BaseEstimator):
         self.cv = cv
         self.verbose = verbose
         self.sphere_vect = []
-
+        
     def fit(self, imgs, y, groups=None):
         """Fit the searchlight
 
@@ -321,7 +321,7 @@ class SearchLight(BaseEstimator):
         self.scores_ = scores_3D
         return self
       
-        def compute_sphere(self, imgs):
+    def compute_sphere(self, imgs):
         """Create the spheres of the searchlight
 
         Parameters
@@ -329,8 +329,9 @@ class SearchLight(BaseEstimator):
         imgs : Niimg-like object
             See http://nilearn.github.io/manipulating_images/input_output.html
             4D image.
+            
         """
-
+        
         # check if image is 4D
         imgs = check_niimg_4d(imgs)
 
