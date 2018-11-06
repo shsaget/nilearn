@@ -267,6 +267,7 @@ class SearchLight(BaseEstimator):
         self.cv = cv
         self.verbose = verbose
         self.sphere_vect = []
+        self.img_vect = []
         
     def fit(self, imgs, y, groups=None):
         """Fit the searchlight
@@ -322,6 +323,16 @@ class SearchLight(BaseEstimator):
         return self
       
     def compute_sphere(self, imgs):
+        """Compute the sphere on which the searchlught have to be done without fitting
+        Parameters :
+        - imgs : images on which the masks have to be applied
+
+        Outputs :
+        - X : vector of the masked images (ndarray)
+        - A : adjacency matrix. Defines for each feature the neigbhoring features
+              following a given structure of the data (scipy sparse.lil.matrix)
+        
+        """
         # check if image is 4D
         imgs = check_niimg_4d(imgs)
 
@@ -343,14 +354,7 @@ class SearchLight(BaseEstimator):
             process_mask_coords, imgs, self.radius, True,
             mask_img=self.mask_img)
 
-        # estimator = self.estimator
-        # if isinstance(estimator, _basestring):
-        #    estimator = ESTIMATOR_CATALOG[estimator]()
-
-        # scores = search_light(X, y, estimator, A, groups,
-        #                      self.scoring, self.cv, self.n_jobs,
-        #                      self.verbose)
-        #scores_3D = np.zeros(process_mask.shape)
-        #scores_3D[process_mask] = scores
-        self.sphere_vect = A
+        self.img_vect = X
+        self.sphere_vect = A.toarray().astype(int)
         return self
+
