@@ -357,7 +357,7 @@ class SearchLight(BaseEstimator):
             mask_img=self.mask_img)
 
         self.img_vect = X
-        self.sphere_vect = A.toarray().astype(int)
+        self.sphere_vect = A
         return self
 
 def get_spheric_mask_values(X, A):
