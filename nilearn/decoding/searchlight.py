@@ -333,6 +333,8 @@ class SearchLight(BaseEstimator):
               following a given structure of the data (scipy sparse.lil.matrix)
         
         """
+        print('Computing spheres ...')
+        
         # check if image is 4D
         imgs = check_niimg_4d(imgs)
 
@@ -357,4 +359,42 @@ class SearchLight(BaseEstimator):
         self.img_vect = X
         self.sphere_vect = A.toarray().astype(int)
         return self
+
+def get_spheric_mask_values(X, A):
+    """ This function is the following of the 'searchlight.compute_sphere' method
+    Compute the values of masked images from spheres already defined.
+    The result is returned as a np.array of dimension N x M
+    with N : the number of spheres and M : the number of images.
+    Each element [n,m] of this np.array is an array (dtype : object) containing
+    the values of the image m masked by the sphere n.
+
+    About storing of the output :
+    !! HDF5 format is not directly compatible with object np.arrays !!
+    Consider :
+    - to use numpy.save to save directly the np.array to a .npy file if the
+      array is smaller than 2.5GB in memory. (np.save limit for 1 chunk)
+    - to use numpy.savez with sliced np.arrays (smaller than 2.5GB) to an 
+      archived .npz file. 
+    - ANOTHER RECOMMANDED OPTION is to use panda.DataFrame to store the np.ndarray
+      (dtype = object) and the export this DataFrame to hdf5 file
+      using to_hdf method. A WARNING will be raised about performance since the
+      python object (np.array) is not directly mappable to a c-type object.
+
+    Parameters :
+    - X : vector of the masked images (np.array)
+    - A : adjacency matrix. Defines for each feature the neigbhoring features
+          following a given structure of the data (scipy sparse.lil.matrix)
+
+    Output :
+    - masked_img_values = matrix of array containing all the masked images values (np.array)
+    """
+
+    print('Computing values ...')
+    masked_img_values = np.ndarray((X.shape[1] , X.shape[0])).astype(object)
+    # masked_img_values = scipy.sparse.lil_matrix((X.shape[1] , X.shape[0]), dtype = object)
+    for img in np.arange(X.shape[0]): #on parcourt toutes les images
+        for sph in np.arange(X.shape[1]): # on parcourt tous les centres de spĥère
+            masked_img_values[sph,img] = X[img][A.rows[sph]]
+
+    return masked_img_values
 
