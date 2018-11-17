@@ -684,6 +684,44 @@ def get_dsm_parallel2(h5_file, nbr_chunks, nbr_spheres, norm_chunk_length, nbr_r
 
     return all_dsms
 
+def get_dsm_parallel3(h5_file, nbr_chunks, nbr_spheres, norm_chunk_length, nbr_runs, metric = 'spearmanr', n_jobs = 1):
+
+    ### Open the hdf5 store
+    with pd.HDFStore(h5_file, mode='r') as store:
+        all_dsms = np.empty((1, 0), dtype='object') #create a no value array at wich the resulsts will be appended
+        for ch in np.arange(1):#nbr_chunks):  ## Loop on all the groups in the hdf5 file
+            sph_values = store.select(key = 'chunk_' + str(ch)).values
+            chunk_size = sph_values.shape[0]
+            # chunk_size = 33
+            chunk_dsm = np.empty((1, chunk_size), dtype='object')
+            results = Parallel(n_jobs=n_jobs, verbose = 1)(
+                delayed(get_dsm_from_searchlight_process)(
+                    i, sph_values[i],  norm_chunk_length, nbr_runs,
+                    chunk_size, metric = 'spearmanr')
+                for i in np.arange(chunk_size))
+
+
+            chunk_dsms = np.empty((1, chunk_size), dtype='object')
+            chunk_dsms[0][:] = results
+            # print(chunk_dsms.shape)
+            # print(chunk_dsms[0][0].shape)
+            all_dsms = np.append(all_dsms, chunk_dsms , axis = 1)
+            # print(test[1][0].shape)
+            # print(test.shape)
+            #
+            # print(np.asarray(results[0]).shape)
+
+        #
+        # print(type(all_dsms))
+        # print(all_dsms.shape)
+        #
+        # print(all_dsms[0][0].shape)
+        # print(all_dsms[0][50].shape)
+
+
+
+    return all_dsms
+
 
 ## Manage DSMs ##
 def save_dsms(dsms, save_path, save_name):
