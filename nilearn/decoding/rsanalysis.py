@@ -614,7 +614,7 @@ def get_dsm_parallel(h5_file, nbr_chunks, nbr_spheres, norm_chunk_length, nbr_ru
     ### Open the hdf5 store
     with pd.HDFStore(h5_file, mode='r') as store:
         all_dsms = np.empty((1, 0), dtype='object') #create a no value array at wich the resulsts will be appended
-        for ch in np.arange(nbr_chunks):  ## Loop on all the groups in the hdf5 file
+        for ch in np.arange(1):#nbr_chunks):  ## Loop on all the groups in the hdf5 file
             sph_values = store.select(key = 'chunk_' + str(ch)).values
             chunk_size = sph_values.shape[0]
             # chunk_size = 33
