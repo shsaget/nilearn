@@ -475,42 +475,24 @@ def dsm_spearman(stims_values):
     # plt.close(fig)
     return dsm_vect
 
-def dsm_euclid(layer_output, saving_name):
-    """ Calcul d'une RDM 25x25 pour le jeu de donnée Studyforrest.
-    Utilise la distance euclidienne entre les représentation de
-    chaque stimulus.
-    -> Prend en entrée les représentations issues d'une couche d'un
-    réseau de neurone et le nom de cette couche.
-    -> Renvoie la dsm sous forme de matrice numpy.
-    -> Sauvegarde une image png de la matrice"""
+def dsm_euclid(stims_values):
+    """
+    Take a np.array of dimension 2 with columns representing stimuli
+    and row representing occurences
+    """
+    nbr_stim = stims_values.shape[0]
+    
+    ### Compute triangular sup Matrix stored in  array
+    length = int(((nbr_stim * nbr_stim) - nbr_stim)/ 2) #length of the upper side
+    dsm_vect = np.empty((1 , length))
+    ind = 0
+    for i in np.arange(nbr_stim):
+        for j in np.arange(nbr_stim - i -1 ):
+            d = euclidean(stims_values[i],stims_values[j+i+1])
+            dsm_vect[0][ind] = d
+            ind += 1
 
-    dsm = np.empty((25,25))
-    #On crée une matrice qui contient les 48 différentes valeurs qui représentent chacun des 25 stimuli
-    activation = np.empty((25, len(layer_output[0])))
-    for i in range(25):
-        activation[i]=np.copy(layer_output[i])
-
-    # Coréaltion de spearman entre les 48 coordonnées des 25 stimuli deux à deux:
-    for i in range(25):
-        for j in range(25):
-            d = euclidean(activation[i],activation[j]) # Metric choice for DNN representations comparison
-            dsm[i, j] = d
-
-    max = np.amax(dsm)
-    min = np.amin(dsm)
-    ### On normalise la DSM
-    for i in range(25):
-    	for j in range(25):
-    		dsm[i, j] /= max
-    ##### On sauvegarde la DSM   #########
-    #np.savetxt("DSMs/L1_TF.csv", dsm1, delimiter=",") # Save the DSM of layer i so that it can be used with the rsa toolbox.
-    ax_bis = sns.heatmap(dsm, cmap=sns.diverging_palette(260, 10, sep=1, n=300, l=30, s=99.99)) # Custom color palette, close to guclu's one
-    fig = ax_bis.get_figure()
-    # plt.show(fig)
-    fig.savefig(saving_name)
-    plt.close(fig)
-    return dsm
-
+    return dsm_vect
 
 #############################################################################################################################
 ## First Level RSAnalysis (computing from a single model) ######### First Level RSAnalysis (computing from a single model) ##
@@ -563,6 +545,9 @@ def get_dsm_from_searchlight(h5_file, nbr_chunks, nbr_spheres, nbr_runs, metric 
 
                 if metric == 'spearmanr':
                     dsm[0][count] = dsm_spearman(means)
+                    
+                if metric == 'euclidean'
+                    dsm[0][count] = dsm_euclid(means)
                 count += 1
     return dsm
 
@@ -590,7 +575,8 @@ def get_dsm_from_searchlight_opti(h5_file, nbr_chunks, nbr_spheres, norm_chunk_l
 
             if metric == 'spearmanr':
                 dsm[0][sph] = dsm_spearman(means)
-
+            if metric == 'euclidean'
+                dsm[0][sph] = dsm_euclid(means)
     return dsm
 
 
@@ -607,6 +593,8 @@ def get_dsm_from_searchlight_process(i, sph_values, norm_chunk_length, nbr_runs,
     # dsms = np.empty((1, chunk_size), dtype='object')
     if metric == 'spearmanr':
         dsm = dsm_spearman(means)
+    if metric == 'euclidean'
+        dsm = dsm_euclid(means)
     return dsm
 
 def get_dsm_parallel(h5_file, nbr_chunks, nbr_spheres, norm_chunk_length, nbr_runs, metric = 'spearmanr', n_jobs = 1):
