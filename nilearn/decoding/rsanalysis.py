@@ -546,7 +546,7 @@ def get_dsm_from_searchlight(h5_file, nbr_chunks, nbr_spheres, nbr_runs, metric 
                 if metric == 'spearmanr':
                     dsm[0][count] = dsm_spearman(means)
                     
-                if metric == 'euclidean'
+                if metric == 'euclidean':
                     dsm[0][count] = dsm_euclid(means)
                 count += 1
     return dsm
@@ -575,7 +575,7 @@ def get_dsm_from_searchlight_opti(h5_file, nbr_chunks, nbr_spheres, norm_chunk_l
 
             if metric == 'spearmanr':
                 dsm[0][sph] = dsm_spearman(means)
-            if metric == 'euclidean'
+            if metric == 'euclidean':
                 dsm[0][sph] = dsm_euclid(means)
     return dsm
 
@@ -593,7 +593,7 @@ def get_dsm_from_searchlight_process(i, sph_values, norm_chunk_length, nbr_runs,
     # dsms = np.empty((1, chunk_size), dtype='object')
     if metric == 'spearmanr':
         dsm = dsm_spearman(means)
-    if metric == 'euclidean'
+    if metric == 'euclidean':
         dsm = dsm_euclid(means)
     return dsm
 
@@ -610,7 +610,7 @@ def get_dsm_parallel(h5_file, nbr_chunks, nbr_spheres, norm_chunk_length, nbr_ru
             results = Parallel(n_jobs=n_jobs, verbose = 1, backend = "multiprocessing")(
                 delayed(get_dsm_from_searchlight_process)(
                     i, sph_values[i],  norm_chunk_length, nbr_runs,
-                    chunk_size, metric = 'spearmanr')
+                    chunk_size, metric = metric)
                 for i in np.arange(chunk_size))
 
 
