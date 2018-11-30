@@ -124,6 +124,21 @@ def _fill_html_template(info, embed_js=True):
     return SurfaceView(as_html)
 
 
+def view_img_on_surf_sym(stat_map_img, surf_mesh='fsaverage5',
+                              threshold=None, cmap=cm.cold_hot,
+                              black_bg=False, symmetric_cmap=True, vmax=None):
+    """ 
+    Same than the 'view_img_on_surf' function adding the possibility to choose teh symmetry
+    """
+    
+    stat_map_img = check_niimg_3d(stat_map_img)
+    info = full_brain_info(
+        volume_img=stat_map_img, mesh=surf_mesh, threshold=threshold,
+        cmap=cmap, black_bg=black_bg, symmetric_cmap=symmetric_cmap, vmax=vmax)
+    return _fill_html_template(info, embed_js=True)
+
+
+
 def view_img_on_surf(stat_map_img, surf_mesh='fsaverage5',
                      threshold=None, cmap=cm.cold_hot,
                      black_bg=False, vmax=None):
