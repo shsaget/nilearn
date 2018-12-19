@@ -268,7 +268,7 @@ class SearchLight(BaseEstimator):
         self.verbose = verbose
         self.sphere_vect = []
         self.img_vect = []
-        
+
     def fit(self, imgs, y, groups=None):
         """Fit the searchlight
 
@@ -321,7 +321,7 @@ class SearchLight(BaseEstimator):
         scores_3D[process_mask] = scores
         self.scores_ = scores_3D
         return self
-      
+
     def compute_sphere(self, imgs):
         """Compute the sphere on which the searchlught have to be done without fitting
         Parameters :
@@ -331,18 +331,17 @@ class SearchLight(BaseEstimator):
         - X : vector of the masked images (ndarray)
         - A : adjacency matrix. Defines for each feature the neigbhoring features
               following a given structure of the data (scipy sparse.lil.matrix)
-        
+
         """
         print('Computing spheres ...')
-        
+
         # check if image is 4D
-        imgs = check_niimg_4d(imgs)
+        # imgs = check_niimg_4d(imgs)
 
         # Get the seeds
         process_mask_img = self.process_mask_img
         if self.process_mask_img is None:
             process_mask_img = self.mask_img
-
         # Compute world coordinates of the seeds
         process_mask, process_mask_affine = masking._load_mask_img(
             process_mask_img)
@@ -373,8 +372,8 @@ def get_spheric_mask_values(X, A):
     Consider :
     - to use numpy.save to save directly the np.array to a .npy file if the
       array is smaller than 2.5GB in memory. (np.save limit for 1 chunk)
-    - to use numpy.savez with sliced np.arrays (smaller than 2.5GB) to an 
-      archived .npz file. 
+    - to use numpy.savez with sliced np.arrays (smaller than 2.5GB) to an
+      archived .npz file.
     - ANOTHER RECOMMANDED OPTION is to use panda.DataFrame to store the np.ndarray
       (dtype = object) and the export this DataFrame to hdf5 file
       using to_hdf method. A WARNING will be raised about performance since the
@@ -389,12 +388,13 @@ def get_spheric_mask_values(X, A):
     - masked_img_values = matrix of array containing all the masked images values (np.array)
     """
 
-    print('Computing values ...')
-    masked_img_values = np.ndarray((X.shape[1] , X.shape[0])).astype(object)
+    # print('Computing values ...')
+    masked_img_values = np.ndarray((A.shape[0] , X.shape[0])).astype(object)
+    # print(masked_img_values.shape)
+    # print(A.shape)
     # masked_img_values = scipy.sparse.lil_matrix((X.shape[1] , X.shape[0]), dtype = object)
-    for img in np.arange(X.shape[0]): #on parcourt toutes les images
-        for sph in np.arange(X.shape[1]): # on parcourt tous les centres de spĥère
+    for img in np.arange(masked_img_values.shape[1]): #on parcourt toutes les images
+        for sph in np.arange(masked_img_values.shape[0]): # on parcourt tous les centres de spĥère
             masked_img_values[sph,img] = X[img][A.rows[sph]]
 
     return masked_img_values
-

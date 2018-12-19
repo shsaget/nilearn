@@ -27,12 +27,14 @@ NW = Not Written
 #############################################################################################################################
 import os
 import sys
+import random
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
 from scipy.stats.mstats import spearmanr
 from scipy.spatial.distance import euclidean
+from scipy.sparse import save_npz, load_npz
 
 ## Time and progress
 import time
@@ -313,8 +315,78 @@ def NU_save_srcl_values2(masked_values, save_path, subs):
         base.append('test')
     return
 
+def extract_spheres_coord(mask_img, radius, save_path = None, sufixe = None, saving = False):
+    """
+    This function is made for optimisation. It has the same principle as the same
+    principle as the 'searchlight_values_direct_saving' function but it only compute
+    the spheres' coordinates and indices for 1 subjects. Since some masks have a large
+    amount of voxels and the radius of the spheres can be quite large, the computing
+    of the spheres can be quite long and we don't want to launch this computation
+    each time with the script.
+    Instead, we prefer to save a sparse matrix (with coo format) of the spheres coordinates
+    at .npz format that will be easily load and treated (coo matrix to lil matrix) to fit as
+    a parameter of the function 'searchlight_values_direct_saving' with the funtion 'load_spheres_coord'
 
-def searchlight_values_direct_saving(mask_img, radius, subs, nsubs, betas, betas_path, save_path, sufixe = None, chunk_size = 500):
+    Parameters =
+        - mask_img : nii image of the mask from which the signal is extracted.
+        - radius : define the radius of the spheres (in mm)
+        - save_path : define the path where the matrix has to be saved
+        - sufixe : add somethong to the saving name of the matrix. The name of the mask for instance
+        - saving : activate or deactivate thee saving of the matrix.
+
+    Outputs =
+        - A : the sparse matrix containing the coordinates of the spheres and the indices of the voxels within it.
+    """
+
+    img = image.concat_imgs([mask_img])
+    searchlight = decoding.SearchLight(
+        mask_img,
+        radius=radius, n_jobs=-1,
+        verbose=1)
+    searchlight.compute_sphere(img)
+    A = searchlight.sphere_vect
+
+    if saving :   # If the saving otion is activated
+        to_save = A.tocoo()
+        save_name = str(radius) + 'mm_spheres_coodinates'
+        if sufixe != None :
+            save_name += '_' + sufixe
+        save_npz(save_path + '/' + save_name, to_save)
+
+    return A
+
+def load_spheres_coord(path_name) :
+    """
+    This function is usefull to load a sparse matrix saved by the 'extract_spheres_coord' function.
+    The loaded matrix is in the .coo format, for using it in the 'searchlight_values_direct_saving' function,
+    it needs to be convert as a LIL Matrix.
+
+    Parameters :
+        - path_name : path of the sparse matrix.
+        -
+
+    Outputs :
+        - spheres_coord
+    """
+
+    A_coo = load_npz(path_name)
+    A = A_coo.tolil()
+
+    return A
+
+
+import os, sys
+
+class HiddenPrints:
+    def __enter__(self):
+        self._original_stderr = sys.stderr
+        sys.stderr = open(os.devnull, 'w')
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        sys.stderr.close()
+        sys.stderr = self._original_stderr
+
+def searchlight_values_direct_saving(mask_img, radius, subs, nsubs, betas, betas_path, save_path, sufixe = None, chunk_size = 500, sph_coords = None):
     """
     This functions has the same goal than 'searchlight_values_extraction'
     but instead of keeping the masked
@@ -341,6 +413,8 @@ def searchlight_values_direct_saving(mask_img, radius, subs, nsubs, betas, betas
                  the default sufixe is '_searchlight_[radius]_mm_values.h5'.
                  If a personnal sufixe is declared in the function call, the extension have to be had to the sufixe.
       - chunk_size : default 500. Size of each group in the saved hdf5 file.
+      - sph_coords : Optionnaly, the corrdinate for the sphere can be compute before (with extract_spheres_coord function).
+                     Since we use an unique mask, the spheres can be the same across the subjects and don't have to be computed each time.
     """
     if sufixe == None:
         sufixe = '_searchlight_' + str(radius) + '_mm_values.h5'
@@ -356,29 +430,42 @@ def searchlight_values_direct_saving(mask_img, radius, subs, nsubs, betas, betas
             radius=radius, n_jobs=-1,
             verbose=1)
 
-        searchlight.compute_sphere(beta_img_nii)
-        A = searchlight.sphere_vect
-        X = searchlight.img_vect
-        print(A.shape)
-        print(A[0])
-
+        #### N'exécuter cette fonction que lors du premier sujet. Les sphères restant ls meme il n'est pas besoin de les recalculer.
+        if s == 0 and sph_coords == None:       ### Si on traite le premier sujet et que les coordonnées des sphères ne sont pas données en entrée
+            searchlight.compute_sphere(beta_img_nii)
+            A = searchlight.sphere_vect
+            X = searchlight.img_vect
+        elif s == 0 and sph_coords != None:     ### Si on traite le premier sujet et que l'on a donner les sphère en entrée
+            A = sph_coords
+            X = masking.apply_mask(beta_img_nii, mask_img)
+        elif s>0 :                              ### Si on traite un nouveau sujet avec les même sphères que les précédents
+            #On ne change pas A mais seulement les images masquées
+            X = masking.apply_mask(beta_img_nii, mask_img)
+        # print(A.shape)
+        # print(X.shape)
+        # print(A[0])
 
         if chunk_size == 'max':
             stride = A.shape[0]     # We take all the centers at once
         else :
             stride = chunk_size
+
+
+        save_name = '_' + str(radius) + 'mm_spheres'
+        if sufixe != None :
+            save_name += '_' + sufixe
         passe = 0
-
-        # store = pd.HDFStore(save_path + '/' + subs[s]+'_searchlight_10_mm_values.h5')
+        print("Sujet en cours : ", subs[s])
         for sph in np.arange(0, A.shape[0] , stride):
-
-            print(passe)
+            sys.stdout.write('Computing values ... Chunks : {0}/{1} \r' .format(passe+1 , int(np.ceil(A.shape[0]/stride))))
             masked_values = decoding.searchlight.get_spheric_mask_values(X,A[sph:sph+stride,:])
-            print(masked_values.shape)
+            # print(masked_values.shape)
             # store.put('values',masked_values, format='fixed', append = 'True' )
             to_save = pd.DataFrame(masked_values)
-            to_save.to_hdf(save_path + '/' + subs[s]+sufixe, key='chunk_'+str(passe))
+            with HiddenPrints():   # !!!!!!!!!!!!!!!! If an error occure in the saving, it won't be shown in stderr !!!!!!!!!!!!!!!!!!!!! #
+                to_save.to_hdf(save_path + '/' + subs[s] + save_name, key='chunk_'+str(passe))
             passe += 1
+        print('')
     return
 
 #############################################################################################################################
@@ -481,7 +568,7 @@ def dsm_euclid(stims_values):
     and row representing occurences
     """
     nbr_stim = stims_values.shape[0]
-    
+
     ### Compute triangular sup Matrix stored in  array
     length = int(((nbr_stim * nbr_stim) - nbr_stim)/ 2) #length of the upper side
     dsm_vect = np.empty((1 , length))
@@ -512,15 +599,15 @@ def get_h5_info(h5_file):
     with pd.HDFStore(h5_file, mode='r') as store:
         # store = pd.HDFStore(h5_file)
         nbr_chunks = len(store.keys())
-        print(nbr_chunks)
+        # print('Nombre de chunks :', nbr_chunks)
 
         norm_chunk = store.get('chunk_0')
-        print(norm_chunk.shape)
+        # print('Shape des chunks complets :', norm_chunk.shape)
         nbr_spheres = norm_chunk.shape[0]  # If only 1 group, its lentgh is the total length
 
         if nbr_chunks > 1:
             ended_chunk = store.get('chunk_' + str(nbr_chunks-1))
-            print(ended_chunk.shape)
+            # print('Shape du dernier chunk :', ended_chunk.shape)
             nbr_spheres = norm_chunk.shape[0] * (nbr_chunks-1) + ended_chunk.shape[0]     # length of normal chunk * number-1 + lentgh of the last chunk
 
     return nbr_chunks, nbr_spheres, norm_chunk.shape[0]
@@ -545,7 +632,7 @@ def get_dsm_from_searchlight(h5_file, nbr_chunks, nbr_spheres, nbr_runs, metric 
 
                 if metric == 'spearmanr':
                     dsm[0][count] = dsm_spearman(means)
-                    
+
                 if metric == 'euclidean':
                     dsm[0][count] = dsm_euclid(means)
                 count += 1
@@ -643,7 +730,7 @@ def save_dsms(dsms, save_path, save_name):
 
 def load_dsms(path_name):
 
-    dsms = pd.read_hdf(path_name, key = 'DSMs').values
+    dsms = pd.read_hdf(path_name).values
 
     return dsms
 
@@ -661,6 +748,13 @@ def triu2full(dsm_triu):
     dsm_full[ind_low] = dsm_full.T[ind_low]
     return dsm_full
 
+def full2vect(dsm_full):
+    dim = dsm_full.shape[0]
+    ind_up = np.triu_indices(dim, 1)
+    dsm_vect = np.zeros((1, int((dim*dim-dim)/2)))
+    dsm_vect[0] = dsm_full[ind_up]
+    return dsm_vect
+
 def show_dsm(dsm):
     fig = plt.figure()
     plt.imshow(dsm);
@@ -672,13 +766,33 @@ def show_dsm(dsm):
 ## Second Level RSAnalysis (models comparisons) ############################# Second Level RSAnalysis (models comparisons) ##
 #############################################################################################################################
 
-def NW_compare_2_models(DSM1,DSM2):
-  """
-  Compare the DSM created from to different representationnal space
-  (diffrent model of different values)
-  Spearman correlation is generaly used for this comparison of
-  DSMs but other metrics are implemented
-  """
+def compare_dsms(DSM1,DSM2, verbose = 1):
+    """
+    Compare the DSM created from to different representationnal space
+    (diffrent model of different values)
+    Spearman correlation is generaly used for this comparison
+    """
+
+    ### Vérification de la forme vectorielle des DSMs
+    if DSM1.shape[0] != 1 :
+        if verbose >0:
+            print('First matrix is not vectorized')
+            print('Assuming the matrix is full, it is converted with nilearn.decoding.rsanlysis.full2vect()')
+        DSM1 = full2vect(DSM1)
+
+    if DSM2.shape[0] != 1 :
+        if verbose >0:
+            print('Second matrix is not vectorized')
+            print('Assuming the matrix is full, it is converted with nilearn.decoding.rsanlysis.full2vect()')
+        DSM2 = full2vect(DSM2)
+
+    ### Speramn r corrélation entre les matrices
+
+    r, _ = spearmanr(DSM1, DSM2)
+    return r
+
+
+
 
 def NW_cand_dsms_to_one_ref(DSMs_candidate , DSM_reference):
   """
@@ -696,13 +810,13 @@ def NW_cand_dsms_to_one_ref(DSMs_candidate , DSM_reference):
   [  0  , 0,   0,   1,   0,   0,   0]
   """
 
-def NW_cand_dsms_to_ref_dsms(DSMs_candidate , DSMs_reference , attribution_mode = 'auto'):
-  """
-  The idea there is to take 2 sets of DSMs. A "candidate" set and a "reference" one.
-  All candidates will be correlated to all references and the maximum correspondances will be save.
-  The finality of that is an attribution of the candidate dsms to the reference ones.
+def cand_dsms_to_ref_dsms(DSMs_candidate , DSMs_reference , attribution_mode = 'auto', verbose = 1):
+    """
+    The idea there is to take 2 sets of DSMs. A "candidate" set and a "reference" one.
+    All candidates will be correlated to all references and the maximum correspondances will be save.
+    The finality of that is an attribution of the candidate dsms to the reference ones.
 
-  This attribution take the form of an array 2xL with L dipendending on the 'attribution_mode' :
+    This attribution take the form of an array 3xL with L dipendending on the 'attribution_mode' :
     - "on_reference" :  L is the reference set length.
                         The first row of the array is the index of the ref. DSMs.
                         Second row is the index of the cand. DSM attribuated to each ref.
@@ -713,7 +827,71 @@ def NW_cand_dsms_to_ref_dsms(DSMs_candidate , DSMs_reference , attribution_mode 
                         - act like "on_reference" mode if ref. set is the largest
                         - act like "on_candidate" mode if cand. set is the largest
 
-  Take care about the attribution_mode : if L is taken from the smallest set, the second row will no more
-  be composed by scalar but by arrays that will modify the output dtype!
-  If you don't know or you are not sure about the length of the input sets, consider using 'auto' mode
-  """
+    Third row is the correlation score between the candidate and the reference
+
+    Take care about the attribution_mode : if L is taken from the smallest set, the second row will no more
+    be composed by scalar but by arrays that will modify the output dtype!
+    If you don't know or you are not sure about the length of the input sets, consider using 'auto' mode
+    of the input sets, consider using 'auto' mode
+
+    """
+
+    #### Vérification du mode utilisé
+
+    if attribution_mode == 'on_reference':
+        print('This mode is not implemented yet ---> Default mode set')
+        attribution_mode = 'auto'
+    if attribution_mode == 'on_candidate':
+        print('This mode is not implemented yet ---> Default mode set')
+        attribution_mode = 'auto'
+    if attribution_mode != 'on_reference' and attribution_mode != 'on_candidate' and attribution_mode != 'auto':
+        print('Invalid mode ---> Default mode set')
+        attribution_mode = 'auto'
+
+    if attribution_mode == 'auto':
+        if verbose >0 :
+            print('Chosen mode : {}' .format(attribution_mode))
+        L = max(DSMs_candidate.shape[1], DSMs_reference.shape[1])
+        l = min(DSMs_candidate.shape[1], DSMs_reference.shape[1])
+
+    #### Assigement array
+    assig_array = np.ndarray((3, L))
+    assig_array[0] = np.arange(L)
+    print(assig_array)
+    for ref in tqdm(range(L)):   #range(L) 1 for test
+        temp_scores = []
+        for can in range(l):
+            temp_scores.append(compare_dsms(DSMs_candidate[0][can], DSMs_reference[0][ref]))
+        maxi = max(temp_scores)   #on cherche le max entre les scores
+        ind = np.where(temp_scores == maxi)
+        if len(ind) > 1: #On traite le cas de plusieurs maxima
+            # ind = ind[0][-1]  #On prends la dernière des dsms candidates
+            ind = random.choice(ind[0]) #On prends une dsms candidate au hasard
+        elif len(ind) == 1 :
+            ind = ind[0][0]
+        assig_array[1][ref] = maxi
+        assig_array[2][ref] = ind
+
+    return assig_array
+
+
+
+def correlation_map(DSM_candidate , DSMs_reference):
+    """
+    This function do the correlation between 1 DSM and a set of DSMs. Each score is return in an array
+
+    Parameters :
+        - DSM_candidate : Only 1 DSM that will be compared
+        - DSMs_reference : Set of DSMs with which the candidate will be compared
+    Output :
+        - correlation_map_array :   Array with shape (2,L) with L the length of DSMs_reference
+                                    Firts row is the indices of the ref and second row is the correlation score
+    """
+
+    L = DSMs_reference.shape[1]
+    correlation_maps_array = np.empty((2, L))
+    correlation_maps_array[0] = np.arange(L)
+    for i in range(L):
+        correlation_maps_array[1][i] = compare_dsms(DSM_candidate, DSMs_reference[0][i])
+
+    return correlation_maps_array
