@@ -25,7 +25,6 @@ def _apply_mask_and_get_affinity(seeds, niimg, radius, allow_overlap,
     affine = niimg.affine
 
     # Compute world coordinates of all in-mask voxels.
-
     if mask_img is not None:
         mask_img = check_niimg_3d(mask_img)
         mask_img = image.resample_img(mask_img, target_affine=affine,
@@ -41,7 +40,8 @@ def _apply_mask_and_get_affinity(seeds, niimg, radius, allow_overlap,
 
     # For each seed, get coordinates of nearest voxel
     nearests = []
-    for sx, sy, sz in seeds:
+    from tqdm import tqdm
+    for sx, sy, sz in tqdm(seeds):
         nearest = np.round(coord_transform(sx, sy, sz, np.linalg.inv(affine)))
         nearest = nearest.astype(int)
         nearest = (nearest[0], nearest[1], nearest[2])
@@ -58,6 +58,7 @@ def _apply_mask_and_get_affinity(seeds, niimg, radius, allow_overlap,
     clf = neighbors.NearestNeighbors(radius=radius)
     A = clf.fit(mask_coords).radius_neighbors_graph(seeds)
     A = A.tolil()
+
     for i, nearest in enumerate(nearests):
         if nearest is None:
             continue
