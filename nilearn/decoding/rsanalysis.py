@@ -463,7 +463,7 @@ def searchlight_values_direct_saving(mask_img, radius, subs, nsubs, betas, betas
             # store.put('values',masked_values, format='fixed', append = 'True' )
             to_save = pd.DataFrame(masked_values)
             with HiddenPrints():   # !!!!!!!!!!!!!!!! If an error occure in the saving, it won't be shown in stderr !!!!!!!!!!!!!!!!!!!!! #
-                to_save.to_hdf(save_path + '/' + subs[s] + save_name, key='chunk_'+str(passe))
+                to_save.to_hdf(save_path + '/' + subs[s] + save_name + '.h5', key='chunk_'+str(passe))
             passe += 1
         print('')
     return
@@ -689,12 +689,12 @@ def get_dsm_parallel(h5_file, nbr_chunks, nbr_spheres, norm_chunk_length, nbr_ru
     ### Open the hdf5 store
     with pd.HDFStore(h5_file, mode='r') as store:
         all_dsms = np.empty((1, 0), dtype='object') #create a no value array at wich the resulsts will be appended
-        for ch in np.arange(nbr_chunks):  ## Loop on all the groups in the hdf5 file
+        for ch in tqdm(np.arange(nbr_chunks)):  ## Loop on all the groups in the hdf5 file
             sph_values = store.select(key = 'chunk_' + str(ch)).values
             chunk_size = sph_values.shape[0]
             # chunk_size = 33
             chunk_dsm = np.empty((1, chunk_size), dtype='object')
-            results = Parallel(n_jobs=n_jobs, verbose = 1, backend = "multiprocessing")(
+            results = Parallel(n_jobs=n_jobs, verbose = 0, backend = "multiprocessing")(
                 delayed(get_dsm_from_searchlight_process)(
                     i, sph_values[i],  norm_chunk_length, nbr_runs,
                     chunk_size, metric = metric)
@@ -757,7 +757,7 @@ def full2vect(dsm_full):
 
 def show_dsm(dsm):
     fig = plt.figure()
-    plt.imshow(dsm);
+    plt.imshow(dsm, cmap = 'jet');
     plt.colorbar()
     # plt.show()
     return
@@ -857,7 +857,7 @@ def cand_dsms_to_ref_dsms(DSMs_candidate , DSMs_reference , attribution_mode = '
     #### Assigement array
     assig_array = np.ndarray((3, L))
     assig_array[0] = np.arange(L)
-    print(assig_array)
+    # print(assig_array)
     for ref in tqdm(range(L)):   #range(L) 1 for test
         temp_scores = []
         for can in range(l):
@@ -868,9 +868,13 @@ def cand_dsms_to_ref_dsms(DSMs_candidate , DSMs_reference , attribution_mode = '
             # ind = ind[0][-1]  #On prends la dernière des dsms candidates
             ind = random.choice(ind[0]) #On prends une dsms candidate au hasard
         elif len(ind) == 1 :
-            ind = ind[0][0]
-        assig_array[1][ref] = maxi
-        assig_array[2][ref] = ind
+            try :
+                ind = ind[0][0]
+            except :
+                print("Erreur sur le voxel :", ref)
+                ind = 0
+        assig_array[1][ref] = ind
+        assig_array[2][ref] = maxi
 
     return assig_array
 
